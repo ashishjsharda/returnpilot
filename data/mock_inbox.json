@@ -1,0 +1,31 @@
+{
+  "receipts": [
+    {
+      "id": "rcpt-001",
+      "merchant": "Amazon",
+      "category": "electronics",
+      "subject": "Your Amazon.com order has shipped",
+      "purchase_date": "2026-08-26",
+      "body": "Thanks for your order!\n\nUSB-C Hub (7-in-1)\nOrdered: 2026-08-26\nPrice: $29.99\nSold by: Amazon.com\nReturn by: 2026-09-25\n\nReturns accepted via prepaid label or Amazon locker.",
+      "user_intent": null
+    },
+    {
+      "id": "rcpt-002",
+      "merchant": "Target",
+      "category": "home",
+      "subject": "Your Target.com receipt",
+      "purchase_date": "2026-09-01",
+      "body": "Target Order Confirmation\n\nMr. Coffee 12-Cup Coffee Maker\nPurchase date: 2026-09-01\nTotal: $89.99\nMerchant: Target\nReturn by: 2026-09-16\n\nBring this receipt or your Target.com order number in-store or ship it back.",
+      "user_intent": "return"
+    },
+    {
+      "id": "rcpt-003",
+      "merchant": "Best Buy",
+      "category": "electronics",
+      "subject": "Your Best Buy order confirmation",
+      "purchase_date": "2026-08-31",
+      "body": "Best Buy Order Confirmation\n\nSamsung 27\" Monitor\nDate of purchase: 2026-08-31\nAmount charged: $649.99\nRetailer: Best Buy\nReturn by: 2026-09-15\n\nNon-member return window applies.",
+      "user_intent": null
+    }
+  ]
+}
