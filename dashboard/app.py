@@ -55,13 +55,21 @@ STATUS_LABELS = {
 
 def get_agent():
     if "agent" not in st.session_state:
+        # Server-side only: reads Streamlit secrets directly (never rendered
+        # to the browser) first, falling back to whatever was typed into the
+        # local/dev sidebar inputs.
+        access_key = _secret("AWS_ACCESS_KEY_ID") or st.session_state.get("aws_access_key_id_input") or None
+        secret_key = _secret("AWS_SECRET_ACCESS_KEY") or st.session_state.get("aws_secret_access_key_input") or None
+        session_token = _secret("AWS_SESSION_TOKEN") or st.session_state.get("aws_session_token_input") or None
+        region = _secret("AWS_REGION") or st.session_state.get("aws_region_input") or None
+        model_id = _secret("BEDROCK_MODEL_ID") or st.session_state.get("bedrock_model_id_input") or None
         try:
             st.session_state.agent = build_agent(
-                aws_access_key_id=st.session_state.get("aws_access_key_id_input") or None,
-                aws_secret_access_key=st.session_state.get("aws_secret_access_key_input") or None,
-                aws_session_token=st.session_state.get("aws_session_token_input") or None,
-                region_name=st.session_state.get("aws_region_input") or None,
-                model_id=st.session_state.get("bedrock_model_id_input") or None,
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+                aws_session_token=session_token,
+                region_name=region,
+                model_id=model_id,
             )
             st.session_state.agent_build_error = None
         except Exception as exc:  # noqa: BLE001
@@ -95,50 +103,47 @@ st.caption("Your AI agent that makes sure you never lose money to an expired ret
 
 with st.sidebar:
     _using_cloud_secrets = bool(_secret("AWS_ACCESS_KEY_ID") and _secret("AWS_SECRET_ACCESS_KEY"))
-    with st.expander(
-        "🔑 AWS credentials" + (" (loaded from Streamlit secrets)" if _using_cloud_secrets else " (this session only)"),
-        expanded=not _using_cloud_secrets and "agent" not in st.session_state,
-    ):
-        st.caption(
-            "On Streamlit Cloud: set these once in **Settings → Secrets** on the "
-            "deployed app — encrypted server-side, never in the repo, and every "
-            "visitor gets a working demo automatically. Running locally: type "
-            "them here instead — kept only in this browser session's memory, "
-            "never written to `.env`/disk/git. Leave everything blank to fall "
-            "back to `.env` / `~/.aws/credentials` for local CLI runs."
-        )
-        st.text_input(
-            "AWS Access Key ID",
-            value=_secret("AWS_ACCESS_KEY_ID"),
-            type="password" if _using_cloud_secrets else "default",
-            key="aws_access_key_id_input",
-        )
-        st.text_input(
-            "AWS Secret Access Key",
-            value=_secret("AWS_SECRET_ACCESS_KEY"),
-            type="password",
-            key="aws_secret_access_key_input",
-        )
-        st.text_input(
-            "AWS Session Token (optional)",
-            value=_secret("AWS_SESSION_TOKEN"),
-            type="password",
-            key="aws_session_token_input",
-        )
-        st.text_input(
-            "AWS Region",
-            value=_secret("AWS_REGION", config.AWS_REGION),
-            key="aws_region_input",
-        )
-        st.text_input(
-            "Bedrock Model ID / ARN",
-            value=_secret("BEDROCK_MODEL_ID", config.BEDROCK_MODEL_ID),
-            key="bedrock_model_id_input",
-        )
-        if st.button("🔌 Connect / Reconnect to Bedrock", use_container_width=True):
-            st.session_state.pop("agent", None)
-            st.session_state.pop("agent_build_error", None)
-            st.rerun()
+
+    if _using_cloud_secrets:
+        # IMPORTANT: never render the actual secret values into any widget
+        # here, even a type="password" one — Streamlit still ships the real
+        # value to the browser DOM, and the built-in "reveal" eye icon (or
+        # just "View Page Source") would show it in plain text to any
+        # visitor. When secrets are present, show a locked status only; the
+        # real values are read server-side (_secret()) inside get_agent(),
+        # which never touches the client.
+        with st.expander("🔑 AWS credentials (loaded from Streamlit secrets)", expanded=False):
+            st.success("🔒 Using credentials from this app's Streamlit Cloud Secrets — hidden from visitors.")
+            st.caption(
+                "Configured in **Settings → Secrets** on the deployed app. "
+                "To change them, edit them there, not here."
+            )
+            st.write(f"**Region:** `{_secret('AWS_REGION', config.AWS_REGION)}`")
+            st.write(f"**Model:** `{_secret('BEDROCK_MODEL_ID', config.BEDROCK_MODEL_ID)}`")
+            if st.button("🔁 Reconnect to Bedrock", use_container_width=True):
+                st.session_state.pop("agent", None)
+                st.session_state.pop("agent_build_error", None)
+                st.rerun()
+    else:
+        with st.expander("🔑 AWS credentials (this session only)", expanded="agent" not in st.session_state):
+            st.caption(
+                "No Streamlit secrets configured for this deploy, so type "
+                "credentials here instead — kept only in this browser "
+                "session's server-side memory, never written to "
+                "`.env`/disk/git. On a *public* deploy, prefer setting "
+                "**Settings → Secrets** instead so visitors never see or "
+                "enter keys at all. Leave blank to fall back to `.env` / "
+                "`~/.aws/credentials` for local CLI runs."
+            )
+            st.text_input("AWS Access Key ID", key="aws_access_key_id_input")
+            st.text_input("AWS Secret Access Key", type="password", key="aws_secret_access_key_input")
+            st.text_input("AWS Session Token (optional)", type="password", key="aws_session_token_input")
+            st.text_input("AWS Region", value=config.AWS_REGION, key="aws_region_input")
+            st.text_input("Bedrock Model ID / ARN", value=config.BEDROCK_MODEL_ID, key="bedrock_model_id_input")
+            if st.button("🔌 Connect / Reconnect to Bedrock", use_container_width=True):
+                st.session_state.pop("agent", None)
+                st.session_state.pop("agent_build_error", None)
+                st.rerun()
 
     st.subheader("Status")
     st.write(f"**Storage:** `{config.STORAGE_BACKEND}`")
