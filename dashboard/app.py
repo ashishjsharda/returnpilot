@@ -22,6 +22,16 @@ from src.memory import get_store  # noqa: E402
 
 st.set_page_config(page_title="ReturnPilot", page_icon="🔄", layout="wide")
 
+
+def _secret(name: str, default: str = "") -> str:
+    """Safely read a Streamlit Cloud secret (Settings -> Secrets on the
+    deployed app). Never raises — returns `default` if secrets aren't
+    configured at all (e.g. running locally with no secrets.toml)."""
+    try:
+        return str(st.secrets.get(name, default))
+    except Exception:  # noqa: BLE001
+        return default
+
 STATUS_LABELS = {
     "monitoring": "🕒 Monitoring",
     "pending_approval": "⚠️ Awaiting approval",
@@ -84,18 +94,47 @@ st.title("🔄 ReturnPilot")
 st.caption("Your AI agent that makes sure you never lose money to an expired return window.")
 
 with st.sidebar:
-    with st.expander("🔑 AWS credentials (this session only)", expanded="agent" not in st.session_state):
+    _using_cloud_secrets = bool(_secret("AWS_ACCESS_KEY_ID") and _secret("AWS_SECRET_ACCESS_KEY"))
+    with st.expander(
+        "🔑 AWS credentials" + (" (loaded from Streamlit secrets)" if _using_cloud_secrets else " (this session only)"),
+        expanded=not _using_cloud_secrets and "agent" not in st.session_state,
+    ):
         st.caption(
-            "Kept in this browser session's memory only — never written to "
-            "`.env`, never saved to disk, never committed. Safe to use even "
-            "with a public repo. Leave blank to fall back to `.env` / "
-            "`~/.aws/credentials` instead (for local CLI runs)."
+            "On Streamlit Cloud: set these once in **Settings → Secrets** on the "
+            "deployed app — encrypted server-side, never in the repo, and every "
+            "visitor gets a working demo automatically. Running locally: type "
+            "them here instead — kept only in this browser session's memory, "
+            "never written to `.env`/disk/git. Leave everything blank to fall "
+            "back to `.env` / `~/.aws/credentials` for local CLI runs."
         )
-        st.text_input("AWS Access Key ID", key="aws_access_key_id_input")
-        st.text_input("AWS Secret Access Key", type="password", key="aws_secret_access_key_input")
-        st.text_input("AWS Session Token (optional)", type="password", key="aws_session_token_input")
-        st.text_input("AWS Region", value=config.AWS_REGION, key="aws_region_input")
-        st.text_input("Bedrock Model ID / ARN", value=config.BEDROCK_MODEL_ID, key="bedrock_model_id_input")
+        st.text_input(
+            "AWS Access Key ID",
+            value=_secret("AWS_ACCESS_KEY_ID"),
+            type="password" if _using_cloud_secrets else "default",
+            key="aws_access_key_id_input",
+        )
+        st.text_input(
+            "AWS Secret Access Key",
+            value=_secret("AWS_SECRET_ACCESS_KEY"),
+            type="password",
+            key="aws_secret_access_key_input",
+        )
+        st.text_input(
+            "AWS Session Token (optional)",
+            value=_secret("AWS_SESSION_TOKEN"),
+            type="password",
+            key="aws_session_token_input",
+        )
+        st.text_input(
+            "AWS Region",
+            value=_secret("AWS_REGION", config.AWS_REGION),
+            key="aws_region_input",
+        )
+        st.text_input(
+            "Bedrock Model ID / ARN",
+            value=_secret("BEDROCK_MODEL_ID", config.BEDROCK_MODEL_ID),
+            key="bedrock_model_id_input",
+        )
         if st.button("🔌 Connect / Reconnect to Bedrock", use_container_width=True):
             st.session_state.pop("agent", None)
             st.session_state.pop("agent_build_error", None)
