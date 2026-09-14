@@ -34,12 +34,25 @@ STATUS_LABELS = {
 # ---------------------------------------------------------------------------
 # Agent connection (lazy, cached in session_state; falls back to the
 # deterministic policy driver if Bedrock isn't reachable yet)
+#
+# Credentials come from the sidebar text inputs below (kept only in this
+# browser session's server-side memory — never written to .env, disk, or
+# git) so nothing secret needs to live in a file that could end up in the
+# public hackathon repo. If those fields are left blank, build_agent() falls
+# back to the standard boto3 credential chain (.env / ~/.aws / AWS_PROFILE)
+# for local CLI use instead.
 # ---------------------------------------------------------------------------
 
 def get_agent():
     if "agent" not in st.session_state:
         try:
-            st.session_state.agent = build_agent()
+            st.session_state.agent = build_agent(
+                aws_access_key_id=st.session_state.get("aws_access_key_id_input") or None,
+                aws_secret_access_key=st.session_state.get("aws_secret_access_key_input") or None,
+                aws_session_token=st.session_state.get("aws_session_token_input") or None,
+                region_name=st.session_state.get("aws_region_input") or None,
+                model_id=st.session_state.get("bedrock_model_id_input") or None,
+            )
             st.session_state.agent_build_error = None
         except Exception as exc:  # noqa: BLE001
             st.session_state.agent = None
@@ -71,9 +84,25 @@ st.title("🔄 ReturnPilot")
 st.caption("Your AI agent that makes sure you never lose money to an expired return window.")
 
 with st.sidebar:
+    with st.expander("🔑 AWS credentials (this session only)", expanded="agent" not in st.session_state):
+        st.caption(
+            "Kept in this browser session's memory only — never written to "
+            "`.env`, never saved to disk, never committed. Safe to use even "
+            "with a public repo. Leave blank to fall back to `.env` / "
+            "`~/.aws/credentials` instead (for local CLI runs)."
+        )
+        st.text_input("AWS Access Key ID", key="aws_access_key_id_input")
+        st.text_input("AWS Secret Access Key", type="password", key="aws_secret_access_key_input")
+        st.text_input("AWS Session Token (optional)", type="password", key="aws_session_token_input")
+        st.text_input("AWS Region", value=config.AWS_REGION, key="aws_region_input")
+        st.text_input("Bedrock Model ID / ARN", value=config.BEDROCK_MODEL_ID, key="bedrock_model_id_input")
+        if st.button("🔌 Connect / Reconnect to Bedrock", use_container_width=True):
+            st.session_state.pop("agent", None)
+            st.session_state.pop("agent_build_error", None)
+            st.rerun()
+
     st.subheader("Status")
     st.write(f"**Storage:** `{config.STORAGE_BACKEND}`")
-    st.write(f"**Model:** `{config.BEDROCK_MODEL_ID}`")
     st.write(f"**Auto-approve under:** ${config.APPROVAL_THRESHOLD_USD:.0f}")
 
     agent_probe = get_agent()
@@ -84,13 +113,9 @@ with st.sidebar:
         with st.expander("Why?"):
             st.code(st.session_state.get("agent_build_error", "unknown"))
             st.caption(
-                "Add AWS credentials to .env and make sure the Claude model is "
-                "enabled in Bedrock → Model access, then click Reconnect below."
+                "Fill in your AWS credentials above and make sure the Claude "
+                "model is enabled in Bedrock, then click Connect/Reconnect."
             )
-        if st.button("🔁 Reconnect to Bedrock"):
-            st.session_state.pop("agent", None)
-            st.session_state.pop("agent_build_error", None)
-            st.rerun()
 
     st.divider()
     if st.button("♻️ Reset & reseed demo data"):

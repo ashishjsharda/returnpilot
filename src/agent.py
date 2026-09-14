@@ -82,15 +82,41 @@ someone who will read them at a glance, not writing an essay.
 """
 
 
-def build_agent() -> Agent:
+def build_agent(
+    aws_access_key_id: str | None = None,
+    aws_secret_access_key: str | None = None,
+    aws_session_token: str | None = None,
+    region_name: str | None = None,
+    model_id: str | None = None,
+) -> Agent:
     """Builds the ReturnPilot Strands Agent on Bedrock.
+
+    If explicit credentials are passed (e.g. typed into the dashboard sidebar
+    for this session only), they're used to build a one-off boto3 Session
+    that's never written to disk. Otherwise falls back to the standard boto3
+    credential chain (.env-loaded environment variables, ~/.aws/credentials,
+    AWS_PROFILE, etc.) — useful for local CLI use.
 
     Raises whatever boto3/Bedrock raises on first real call (e.g. missing
     credentials, or the Claude model not being enabled yet in the Bedrock
     console for this account/region) — callers should catch that and show
     the user a clear next step rather than crashing the whole app.
     """
-    model = BedrockModel(model_id=config.BEDROCK_MODEL_ID, region_name=config.AWS_REGION)
+    region_name = region_name or config.AWS_REGION
+    model_id = model_id or config.BEDROCK_MODEL_ID
+
+    boto_session = None
+    if aws_access_key_id and aws_secret_access_key:
+        import boto3
+
+        boto_session = boto3.Session(
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            aws_session_token=aws_session_token or None,
+            region_name=region_name,
+        )
+
+    model = BedrockModel(model_id=model_id, region_name=region_name, boto_session=boto_session)
     return Agent(model=model, tools=ALL_TOOLS, system_prompt=SYSTEM_PROMPT)
 
 

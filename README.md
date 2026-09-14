@@ -44,15 +44,25 @@ Open the URL Streamlit prints (defaults to http://localhost:8501). Click
 By default the dashboard runs against a **local policy fallback** (deterministic
 code, not an LLM) so it works immediately with zero AWS setup — useful for
 development and rehearsing the demo. To use the actual Strands agent + Claude
-on Bedrock:
+on Bedrock, you have two options:
 
-1. In `.env`, set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (or configure
-   the AWS CLI / an `AWS_PROFILE` instead and leave those blank).
-2. In the [Bedrock console](https://console.aws.amazon.com/bedrock/), under
-   **Model access**, make sure the Claude model referenced by
-   `BEDROCK_MODEL_ID` in `.env` is enabled for your account/region.
-3. Restart the dashboard (or click **🔁 Reconnect to Bedrock** in the sidebar).
-   The sidebar will show "Strands agent ready" once it's live.
+**Option A — enter credentials in the dashboard (recommended for this repo
+being public).** Open the **🔑 AWS credentials** expander in the sidebar and
+type your Access Key ID / Secret Access Key / region / model ID directly.
+These are kept only in that browser session's server-side memory — never
+written to `.env`, never saved to disk, never committed — so it's safe even
+though this repo is public. Click **Connect / Reconnect to Bedrock**.
+
+**Option B — `.env` file, for local CLI use** (`scripts/run_heartbeat.py`
+doesn't have a UI to type into). Set `AWS_ACCESS_KEY_ID` /
+`AWS_SECRET_ACCESS_KEY` in `.env` (already gitignored — never commit it
+regardless). If both a sidebar entry and `.env` are present, the sidebar
+value wins for the dashboard.
+
+Either way: in the [Bedrock console](https://console.aws.amazon.com/bedrock/),
+make sure the Claude model you're pointing at is actually enabled/available
+for your account (some models are gated — see the model catalog for which
+ones return `AccessDeniedException` vs. work).
 
 To use real DynamoDB instead of local SQLite, set `RETURNPILOT_STORAGE=dynamodb`
 in `.env` — the table is created automatically (on-demand billing) on first run.
