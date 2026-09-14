@@ -116,7 +116,12 @@ def build_agent(
             region_name=region_name,
         )
 
-    model = BedrockModel(model_id=model_id, region_name=region_name, boto_session=boto_session)
+    # BedrockModel rejects region_name + boto_session together — the session
+    # already carries its own region, so only pass one or the other.
+    if boto_session is not None:
+        model = BedrockModel(model_id=model_id, boto_session=boto_session)
+    else:
+        model = BedrockModel(model_id=model_id, region_name=region_name)
     return Agent(model=model, tools=ALL_TOOLS, system_prompt=SYSTEM_PROMPT)
 
 
